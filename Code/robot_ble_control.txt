@@ -1,0 +1,269 @@
+/*
+  OhmniRobot – BLE + SimpleFOC Motor Control for ESP32
+  ======================================================
+  Firmware này nhận lệnh điều khiển từ RobotApp (Android tablet) qua BLE GATT,
+  rồi dùng thư viện SimpleFOC để điều khiển 2 motor BLDC với AS5600 encoder.
+
+  ─── BLE Configuration ───────────────────────────────────────────────────────
+  Device name  : "OhmniRobot"
+  Service UUID : 4FAFC201-1FB5-459E-8FCC-C5C9C331914B
+  Char UUID    : BEB5483E-36E1-4688-B7F5-EA07361B26A8  (WRITE_NO_RESPONSE)
+
+  ─── Command Format ──────────────────────────────────────────────────────────
+  Chuỗi nhận từ Android: "L<left_speed>R<right_speed>\n"
+    Ví dụ:  "L20.00R-20.00\n"  → xoay phải (left tiến, right lùi)
+            "L-15.00R-15.00\n" → lùi
+            "L0.00R0.00\n"     → dừng
+
+  Đơn vị: rad/s (velocity control), phạm vi [-40.0, 40.0]
+
+  ─── Motor Parameters ────────────────────────────────────────────────────────
+  Pole pairs: 7
+  Supply voltage: 17.5V
+  Voltage limit: 10V
+  Velocity limit: 40 rad/s
+
+  ─── Pin Mapping ─────────────────────────────────────────────────────────────
+  Motor Left  (motor)  – driver  : IN1=32, IN2=33, IN3=25, EN=22
+  Motor Right (motor1) – driver1 : IN1=26, IN2=27, IN3=14, EN=12
+  Sensor Left  (sensor)  – I2C0  : SDA=19, SCL=18 (AS5600)
+  Sensor Right (sensor1) – I2C1  : SDA=23, SCL=5  (AS5600)
+
+  ─── Thư viện cần cài ────────────────────────────────────────────────────────
+  1. SimpleFOC  – cài từ file Simple_FOC.zip qua Arduino IDE:
+     Sketch → Include Library → Add .ZIP Library → chọn Simple_FOC.zip
+  2. NimBLE-Arduino – cài từ Arduino Library Manager:
+     Tools → Manage Libraries → tìm "NimBLE-Arduino" → Install
+     (Nhẹ hơn ESP32 BLE Arduino mặc định, stable hơn)
+
+  ─── Cách nạp ────────────────────────────────────────────────────────────────
+  1. Copy toàn bộ nội dung này vào file .ino mới
+  2. Đổi tên thành robot_ble_control.ino
+  3. Mở bằng Arduino IDE, chọn board ESP32 Dev Module
+  4. Upload
+
+  ─────────────────────────────────────────────────────────────────────────────
+*/
+
+#include <SimpleFOC.h>
+#include <NimBLEDevice.h>
+#include <NimBLEServer.h>
+#include <NimBLEUtils.h>
+
+// ── BLE UUIDs ──────────────────────────────────────────────────────────────────
+#define BLE_DEVICE_NAME  "OhmniRobot"
+#define SERVICE_UUID     "4FAFC201-1FB5-459E-8FCC-C5C9C331914B"
+#define CHAR_UUID        "BEB5483E-36E1-4688-B7F5-EA07361B26A8"
+
+// ── Motor Parameters ───────────────────────────────────────────────────────────
+const int   pole_pairs           = 7;
+const float voltage_power_supply = 17.5f;
+const float voltage_limit        = 10.0f;
+const float velocity_limit       = 40.0f;
+
+// Deadzone để tránh rung khi joystick gần 0
+const float STOP_ZONE  = 0.5f;
+const float DEAD_ZONE  = 3.0f;
+
+// ── Motor & Sensor Objects ─────────────────────────────────────────────────────
+MagneticSensorI2C sensor  = MagneticSensorI2C(AS5600_I2C);
+MagneticSensorI2C sensor1 = MagneticSensorI2C(AS5600_I2C);
+TwoWire I2Cone = TwoWire(0);
+TwoWire I2Ctwo = TwoWire(1);
+
+BLDCMotor motor  = BLDCMotor(pole_pairs);
+BLDCMotor motor1 = BLDCMotor(pole_pairs);
+BLDCDriver3PWM driver  = BLDCDriver3PWM(32, 33, 25, 22);
+BLDCDriver3PWM driver1 = BLDCDriver3PWM(26, 27, 14, 12);
+
+float target_left  = 0.0f;
+float target_right = 0.0f;
+
+// ── BLE State ──────────────────────────────────────────────────────────────────
+NimBLEServer*         bleServer     = nullptr;
+NimBLECharacteristic* cmdChar       = nullptr;
+bool                  bleConnected  = false;
+
+// ── Command Timeout Watchdog ───────────────────────────────────────────────────
+// Nếu không nhận lệnh trong CMD_TIMEOUT_MS → dừng motor (an toàn)
+const unsigned long CMD_TIMEOUT_MS = 800UL;
+unsigned long lastCmdTime = 0;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+
+float applyDeadzone(float v) {
+  if (fabsf(v) < STOP_ZONE) return 0.0f;
+  if (v > 0.0f && v < DEAD_ZONE)  return DEAD_ZONE;
+  if (v < 0.0f && v > -DEAD_ZONE) return -DEAD_ZONE;
+  return constrain(v, -velocity_limit, velocity_limit);
+}
+
+// ── Parse command "L<float>R<float>\n" ────────────────────────────────────────
+bool parseCommand(const String& cmd, float& leftOut, float& rightOut) {
+  int lIdx = cmd.indexOf('L');
+  int rIdx = cmd.indexOf('R');
+  if (lIdx < 0 || rIdx < 0 || rIdx <= lIdx) return false;
+
+  String leftStr  = cmd.substring(lIdx + 1, rIdx);
+  String rightStr = cmd.substring(rIdx + 1);
+  rightStr.trim();
+
+  leftOut  = leftStr.toFloat();
+  rightOut = rightStr.toFloat();
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLE Callbacks
+// ══════════════════════════════════════════════════════════════════════════════
+
+class ServerCallbacks : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer* svr) override {
+    bleConnected = true;
+    Serial.println("[BLE] Client connected");
+    // Tiếp tục quảng cáo để có thể reconnect
+    NimBLEDevice::startAdvertising();
+  }
+  void onDisconnect(NimBLEServer* svr) override {
+    bleConnected = false;
+    target_left  = 0.0f;
+    target_right = 0.0f;
+    Serial.println("[BLE] Client disconnected – motors stopped");
+    NimBLEDevice::startAdvertising();
+  }
+};
+
+class CharCallbacks : public NimBLECharacteristicCallbacks {
+  void onWrite(NimBLECharacteristic* pChar) override {
+    std::string rawVal = pChar->getValue();
+    if (rawVal.empty()) return;
+
+    String cmd = String(rawVal.c_str());
+    cmd.trim();
+    Serial.print("[BLE] Received: ");
+    Serial.println(cmd);
+
+    float left = 0.0f, right = 0.0f;
+    if (parseCommand(cmd, left, right)) {
+      target_left  = left;
+      target_right = right;
+      lastCmdTime  = millis();
+
+      Serial.print("[CMD] left=");
+      Serial.print(target_left);
+      Serial.print(" right=");
+      Serial.println(target_right);
+    } else {
+      Serial.println("[CMD] Parse error – ignoring");
+    }
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Setup
+// ══════════════════════════════════════════════════════════════════════════════
+
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\n=== OhmniRobot BLE + SimpleFOC ===");
+
+  // ── I2C & Sensors ─────────────────────────────────────────────────────────
+  I2Cone.begin(19, 18, 400000);
+  I2Ctwo.begin(23, 5,  400000);
+  sensor.init(&I2Cone);
+  sensor1.init(&I2Ctwo);
+
+  // ── Motors ────────────────────────────────────────────────────────────────
+  motor.linkSensor(&sensor);
+  motor1.linkSensor(&sensor1);
+
+  driver.voltage_power_supply  = voltage_power_supply;
+  driver.init();
+  driver1.voltage_power_supply = voltage_power_supply;
+  driver1.init();
+
+  motor.linkDriver(&driver);
+  motor1.linkDriver(&driver1);
+
+  // Velocity control (closed-loop)
+  motor.foc_modulation  = FOCModulationType::SpaceVectorPWM;
+  motor1.foc_modulation = FOCModulationType::SpaceVectorPWM;
+  motor.controller      = MotionControlType::velocity;
+  motor1.controller     = MotionControlType::velocity;
+
+  // PID parameters
+  motor.PID_velocity.P  = 0.1f;  motor.PID_velocity.I  = 1.0f;  motor.PID_velocity.D  = 0.0f;
+  motor1.PID_velocity.P = 0.1f;  motor1.PID_velocity.I = 1.0f;  motor1.PID_velocity.D = 0.0f;
+
+  // Low-pass filter
+  motor.LPF_velocity.Tf  = 0.01f;
+  motor1.LPF_velocity.Tf = 0.01f;
+
+  // Limits
+  motor.voltage_limit   = voltage_limit;   motor.velocity_limit   = velocity_limit;
+  motor1.voltage_limit  = voltage_limit;   motor1.velocity_limit  = velocity_limit;
+
+  motor.init();   motor.initFOC();
+  motor1.init();  motor1.initFOC();
+  Serial.println("[FOC] Motors ready");
+
+  // ── BLE Setup ─────────────────────────────────────────────────────────────
+  NimBLEDevice::init(BLE_DEVICE_NAME);
+  NimBLEDevice::setPower(ESP_PWR_LVL_P9);   // TX power tối đa
+
+  bleServer = NimBLEDevice::createServer();
+  bleServer->setCallbacks(new ServerCallbacks());
+
+  NimBLEService* svc = bleServer->createService(SERVICE_UUID);
+
+  cmdChar = svc->createCharacteristic(
+    CHAR_UUID,
+    NIMBLE_PROPERTY::WRITE_NR   // WRITE_NO_RESPONSE – thấp latency
+  );
+  cmdChar->setCallbacks(new CharCallbacks());
+
+  svc->start();
+
+  // Advertising
+  NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+  adv->addServiceUUID(SERVICE_UUID);
+  adv->setScanResponse(true);
+  adv->setMinPreferred(0x06);
+  NimBLEDevice::startAdvertising();
+
+  Serial.println("[BLE] Advertising as '" BLE_DEVICE_NAME "'");
+  Serial.println("[BLE] Service:  " SERVICE_UUID);
+  Serial.println("[BLE] Char:     " CHAR_UUID);
+  Serial.println("Ready – waiting for connection...");
+
+  lastCmdTime = millis();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Loop
+// ══════════════════════════════════════════════════════════════════════════════
+
+void loop() {
+  // ── SimpleFOC motor loops (phải gọi liên tục và nhanh nhất có thể) ────────
+  motor.loopFOC();
+  motor1.loopFOC();
+
+  // ── Watchdog: nếu không nhận lệnh quá CMD_TIMEOUT_MS → dừng an toàn ──────
+  if (bleConnected && (millis() - lastCmdTime > CMD_TIMEOUT_MS)) {
+    if (fabsf(target_left) > 0.01f || fabsf(target_right) > 0.01f) {
+      Serial.println("[WATCHDOG] Timeout – stopping motors");
+      target_left  = 0.0f;
+      target_right = 0.0f;
+    }
+  }
+
+  // ── Apply deadzone và cập nhật setpoint ───────────────────────────────────
+  float left_cmd  = applyDeadzone(target_left);
+  float right_cmd = applyDeadzone(target_right);
+
+  motor.move(left_cmd);
+  motor1.move(right_cmd);
+}

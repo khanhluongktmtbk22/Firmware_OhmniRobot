@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>OhmniBot • Web Test Tools</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--txt); max-width:920px; margin-inline:auto; padding:16px 14px 40px; }
+  header h1 { font-size:20px; margin:0 0 2px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:14px; }
+
+  /* ---- Tabs ---- */
+  nav.tabs { display:flex; gap:8px; margin-bottom:16px; }
+  nav.tabs button { flex:1; font:inherit; font-weight:600; border:1px solid var(--line); border-radius:10px; padding:11px 14px; background:var(--card); color:var(--muted); cursor:pointer; }
+  nav.tabs button.active { background:var(--accent); color:#00121f; border-color:var(--accent); }
+  .tab { display:none; }
+  .tab.active { display:block; }
+  #tab-ble { max-width:520px; margin-inline:auto; }
+
+  /* ================= BLE section ================= */
+  #tab-ble .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  #tab-ble .card h2 { font-size:14px; margin:0 0 12px; color:var(--accent); letter-spacing:.3px; }
+  #tab-ble .row { display:flex; gap:8px; align-items:center; }
+  #tab-ble button { font:inherit; border:none; border-radius:10px; padding:12px 14px; background:var(--line); color:var(--txt); cursor:pointer; font-weight:600; transition:filter .12s; flex:1; }
+  #tab-ble button:active { filter:brightness(1.3); }
+  #tab-ble button:disabled { opacity:.4; cursor:not-allowed; }
+  #tab-ble button.primary { background:var(--accent); color:#00121f; }
+  #tab-ble button.slim { flex:0 0 auto; padding:10px 14px; }
+  #tab-ble button.danger { background:#b91c1c; color:#fff; }
+  #tab-ble input, #tab-ble select { font:inherit; background:#0b1220; color:var(--txt); border:1px solid var(--line); border-radius:10px; padding:11px 12px; width:100%; }
+  #tab-ble label { font-size:12px; color:var(--muted); display:block; margin:0 0 4px; }
+  #tab-ble .field { margin-bottom:10px; }
+  #tab-ble .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  #tab-ble .stat { background:#0b1220; border:1px solid var(--line); border-radius:10px; padding:10px; }
+  #tab-ble .stat .k { font-size:11px; color:var(--muted); }
+  #tab-ble .stat .v { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+  #tab-ble .pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; }
+  #tab-ble .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); }
+  #tab-ble .dot.on { background:var(--ok); } #tab-ble .dot.off { background:var(--bad); }
+  #tab-ble .conn-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  #tab-ble .mut { color:var(--muted); font-size:12px; }
+  #tab-ble .warnbox { background:#422006; border:1px solid var(--warn); color:#fde68a; border-radius:10px; padding:10px; font-size:12px; margin-bottom:14px; }
+  #tab-ble .joy-wrap { display:flex; flex-direction:column; align-items:center; gap:12px; }
+  #tab-ble #joyBase { position:relative; width:240px; height:240px; border-radius:50%; background:radial-gradient(circle at 50% 50%, #16233b 0%, #0b1220 70%); border:2px solid var(--line); touch-action:none; user-select:none; display:grid; place-items:center; }
+  #tab-ble #joyBase .axis { position:absolute; color:var(--muted); font-size:12px; font-weight:700; }
+  #tab-ble .axis.up { top:8px; } #tab-ble .axis.down { bottom:8px; }
+  #tab-ble .axis.left { left:12px; } #tab-ble .axis.right { right:12px; }
+  #tab-ble #joyKnob { position:absolute; width:88px; height:88px; border-radius:50%; background:radial-gradient(circle at 40% 35%, var(--accent), #0369a1); box-shadow:0 6px 16px rgba(0,0,0,.45); left:50%; top:50%; transform:translate(-50%,-50%); transition:transform .05s linear; }
+  #tab-ble .joy-readout { font-variant-numeric:tabular-nums; font-weight:700; }
+  #tab-ble .speed-row { display:flex; align-items:center; gap:10px; width:100%; margin-top:4px; }
+  #tab-ble .speed-row input[type=range] { flex:1; }
+  #tab-ble .speedval { font-variant-numeric:tabular-nums; font-weight:700; min-width:78px; text-align:right; }
+  #tab-ble #log { background:#0b1220; border:1px solid var(--line); border-radius:10px; padding:10px; height:110px; overflow:auto; font-family:ui-monospace,monospace; font-size:11px; white-space:pre-wrap; color:var(--muted); }
+
+  /* ================= MCP section ================= */
+  #tab-mcp .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+  #tab-mcp h2 { margin:0 0 8px; font-size:16px; }
+  #tab-mcp label { display:block; font-size:12px; color:var(--muted); margin-bottom:3px; }
+  #tab-mcp button { font:inherit; border:none; border-radius:8px; padding:9px 14px; background:var(--line); color:var(--txt); cursor:pointer; margin:4px 4px 4px 0; }
+  #tab-mcp button:disabled { opacity:.45; cursor:not-allowed; }
+  #tab-mcp button.primary { background:var(--accent); color:#00121f; font-weight:600; }
+  #tab-mcp button.danger { background:#b91c1c; color:#fff; }
+  #tab-mcp button.slim { padding:5px 10px; font-size:12px; }
+  #tab-mcp input, #tab-mcp select { font:inherit; background:#0b1220; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:100%; margin-bottom:6px; }
+  #tab-mcp .row { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  #tab-mcp .log { background:#0b1220; border:1px solid var(--line); border-radius:8px; padding:10px; height:300px; overflow:auto; font-family:ui-monospace,monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; }
+  #tab-mcp .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:8px; }
+  #tab-mcp .pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 10px; background:#0b1220; border-radius:999px; }
+  #tab-mcp .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); transition:background .2s; }
+  #tab-mcp .dot.on { background:var(--ok); } #tab-mcp .dot.err { background:var(--bad); }
+  #tab-mcp .tool { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; background:#0b1220; }
+  #tab-mcp .tool .name { font-weight:600; color:var(--accent); font-family:ui-monospace,monospace; }
+  #tab-mcp .tool .desc { color:var(--muted); font-size:12px; margin:2px 0 6px; }
+  #tab-mcp .muted { color:var(--muted); font-size:12px; }
+  #tab-mcp .ckbox { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--txt); }
+  #tab-mcp .ckbox input { width:auto; margin:0; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>OhmniBot • Web Test Tools</h1>
+    <div class="sub">Một file gộp: <strong>BLE Control</strong> (điều khiển + provisioning) và <strong>MCP WebSocket</strong> (test tool calling như Xiaozhi). Dùng Chrome/Edge.</div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="mcp">MCP WebSocket</button>
+    <button data-tab="ble">BLE Control</button>
+  </nav>
+
+  <!-- ============================================================ MCP ============================================================ -->
+  <section id="tab-mcp" class="tab">
+    <div class="card">
+      <label>MCP Endpoint (ws:// hoặc wss://)</label>
+      <input id="endpoint" placeholder="wss://api.xiaozhi.me/mcp/?token=YOUR_TOKEN" />
+      <div class="row" style="align-items:center">
+        <button id="btnConnect" class="primary">Kết nối</button>
+        <button id="btnDisconnect">Ngắt</button>
+        <span class="pill"><span id="dot" class="dot"></span> <span id="status">Chưa kết nối</span></span>
+        <span class="pill" id="serverInfo" style="display:none"></span>
+        <label class="ckbox" style="margin-left:auto"><input type="checkbox" id="autoInit" checked> Tự initialize + tools/list khi kết nối</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>JSON-RPC cơ bản</h2>
+      <div class="grid">
+        <button data-method="initialize">initialize</button>
+        <button data-method="tools/list">tools/list</button>
+        <button data-method="ping">ping</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tools <span class="muted" id="toolCount"></span></h2>
+      <div id="tools"><div class="muted">Chạy <code>tools/list</code> để nạp danh sách tool từ robot.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Cảm xúc → phản ứng <span class="muted">(gọi set_emotion)</span></h2>
+      <div id="mcpEmotions" class="grid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Gọi tool thủ công</h2>
+      <div class="row">
+        <input id="toolName" placeholder="tên tool (vd: stop)" style="flex:1" />
+        <input id="toolArgs" placeholder='{"speed":8}' style="flex:2" />
+        <button id="btnCall" class="primary">tools/call</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <strong>Log</strong>
+        <span>
+          <label class="ckbox"><input type="checkbox" id="prettyLog" checked> Pretty JSON</label>
+          <button id="btnCopy" class="slim">Copy</button>
+          <button id="btnClear" class="slim">Clear</button>
+        </span>
+      </div>
+      <div id="mcpLog" class="log"></div>
+    </div>
+
+    <div class="card">
+      <label>Raw JSON-RPC (gửi tùy ý)</label>
+      <div class="row">
+        <input id="raw" placeholder='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"stop","arguments":{}}}' style="flex:1" />
+        <button id="btnRaw" class="primary">Gửi</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ BLE ============================================================ -->
+  <section id="tab-ble" class="tab">
+    <div id="nosupport" class="warnbox" style="display:none">
+      Trình duyệt không hỗ trợ Web Bluetooth. Dùng Chrome/Edge (PC hoặc Android). iOS không hỗ trợ.
+    </div>
+
+    <div class="conn-bar">
+      <span class="pill"><span id="connDot" class="dot off"></span><span id="connTxt">Chưa kết nối</span></span>
+      <button id="btnConn" class="primary slim">Kết nối BLE</button>
+    </div>
+
+    <div class="card">
+      <h2>TRẠNG THÁI</h2>
+      <div class="row" style="margin-bottom:10px; gap:16px">
+        <span class="pill"><span id="wifiDot" class="dot"></span>WiFi</span>
+        <span class="pill"><span id="xzDot" class="dot"></span>Xiaozhi</span>
+        <span class="pill"><span id="folDot" class="dot"></span>Follow</span>
+        <span class="mut" id="ipTxt" style="margin-left:auto">IP: —</span>
+      </div>
+      <div class="grid">
+        <div class="stat"><div class="k">Motor TRÁI — target</div><div class="v" id="tL">—</div></div>
+        <div class="stat"><div class="k">Motor TRÁI — vận tốc</div><div class="v" id="vL">—</div></div>
+        <div class="stat"><div class="k">Motor PHẢI — target</div><div class="v" id="tR">—</div></div>
+        <div class="stat"><div class="k">Motor PHẢI — vận tốc</div><div class="v" id="vR">—</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>ĐIỀU KHIỂN (BLE)</h2>
+      <div class="joy-wrap">
+        <div id="joyBase">
+          <span class="axis up">TIẾN</span><span class="axis down">LÙI</span>
+          <span class="axis left">TRÁI</span><span class="axis right">PHẢI</span>
+          <div id="joyKnob"></div>
+        </div>
+        <div class="joy-readout" id="joyReadout">Nghỉ</div>
+        <div class="speed-row">
+          <label style="margin:0">Tốc độ tối đa</label>
+          <input id="speed" type="range" min="2" max="40" step="1" value="12" />
+          <span class="speedval"><span id="speedVal">12</span> rad/s</span>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnStopBle" class="danger">STOP</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>CẤU HÌNH WIFI (BLE)</h2>
+      <div class="field">
+        <label>Quét mạng</label>
+        <div class="row">
+          <select id="ssidList"><option value="">— Bấm Quét —</option></select>
+          <button id="btnScan" class="slim">Quét</button>
+        </div>
+      </div>
+      <div class="field"><label>SSID</label><input id="ssid" placeholder="Tên WiFi" /></div>
+      <div class="field"><label>Mật khẩu</label><input id="pass" type="password" placeholder="Mật khẩu" /></div>
+      <button id="btnWifi" class="primary">Gửi cấu hình WiFi (BLE)</button>
+    </div>
+
+    <div class="card">
+      <h2>CẤU HÌNH XIAOZHI (BLE) → MCP</h2>
+      <div class="field"><label>Endpoint URL (kèm token)</label><input id="xzUrl" placeholder="wss://api.xiaozhi.me/mcp/?token=..." /></div>
+      <div class="field"><label>Token (tuỳ chọn)</label><input id="xzToken" placeholder="" /></div>
+      <button id="btnXz" class="primary">Gửi cấu hình Xiaozhi MCP (BLE)</button>
+      <div class="mut" style="margin-top:6px">Sau khi gửi, robot sẽ kết nối WebSocket MCP bằng WiFi. Mở tab <strong>MCP WebSocket</strong> để test cùng endpoint.</div>
+    </div>
+
+    <div class="card">
+      <h2>FOLLOW (BBOX qua BLE)</h2>
+      <div class="row" style="margin-bottom:8px">
+        <button id="btnFollow" class="primary">Bật Follow</button>
+        <button id="btnSendBox" class="slim">Gửi Box</button>
+      </div>
+      <canvas id="cam" width="320" height="240" style="width:100%; background:#0b1220; border:1px solid var(--line); border-radius:10px; touch-action:none"></canvas>
+      <div class="mut" id="boxReadout">box: —</div>
+    </div>
+
+    <div class="card">
+      <h2>CẢM XÚC (BLE) → phản ứng</h2>
+      <div id="bleEmotions" class="grid"></div>
+      <div class="mut" id="bleEmoStatus" style="margin-top:8px">Chưa kết nối BLE.</div>
+      <div class="mut" style="margin-top:4px">App forward cảm xúc Xiaozhi xuống đây; xe chạy chuỗi phản ứng tương ứng.</div>
+    </div>
+
+    <div class="card">
+      <h2>NHẬT KÝ</h2>
+      <div id="log"></div>
+    </div>
+  </section>
+
+<!-- ============================================================ TAB SWITCH ============================================================ -->
+<script>
+(function () {
+  const sections = { ble: document.getElementById('tab-ble'), mcp: document.getElementById('tab-mcp') };
+  const tabs = document.querySelectorAll('nav.tabs button');
+  function showTab(name) {
+    if (!sections[name]) name = 'mcp';
+    for (const k in sections) sections[k].classList.toggle('active', k === name);
+    tabs.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    localStorage.setItem('ohmni_tab', name);
+  }
+  tabs.forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  showTab(localStorage.getItem('ohmni_tab') || 'mcp');
+})();
+</script>
+
+<!-- ============================================================ MCP SCRIPT ============================================================ -->
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const LS_KEY = 'ohmni_mcp_endpoint';
+  let ws = null;
+  let reqId = 1;
+  const pending = new Map();   // id -> { method, t0 }
+  let _toolPages = [];         // gom các trang tools/list (pagination cursor)
+
+  // ---------- logging ----------
+  function ts() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+  }
+  function fmt(obj) {
+    return $('prettyLog').checked ? JSON.stringify(obj, null, 2) : JSON.stringify(obj);
+  }
+  function log(msg, color = '') {
+    const el = $('mcpLog');
+    const d = document.createElement('div');
+    d.textContent = `[${ts()}] ${msg}`;
+    if (color) d.style.color = color;
+    el.appendChild(d);
+    el.scrollTop = el.scrollHeight;
+    while (el.children.length > 200) el.removeChild(el.firstChild);
+  }
+
+  // ---------- connection state ----------
+  function setStatus(state) {  // 'on' | 'off' | 'err'
+    const connected = state === 'on';
+    $('dot').className = 'dot ' + (state === 'on' ? 'on' : state === 'err' ? 'err' : '');
+    $('status').textContent = connected ? 'Đã kết nối MCP' : (state === 'err' ? 'Lỗi kết nối' : 'Chưa kết nối');
+    $('btnConnect').disabled = connected;
+    $('btnDisconnect').disabled = !connected;
+    if (!connected) { $('serverInfo').style.display = 'none'; }
+  }
+
+  // ---------- send ----------
+  function sendRpc(method, params = {}) {
+    if (!ws || ws.readyState !== 1) { log('✗ Chưa kết nối WS', 'var(--bad)'); return; }
+    const id = reqId++;
+    const msg = { jsonrpc: '2.0', id, method, params };
+    pending.set(id, { method, t0: performance.now() });
+    ws.send(JSON.stringify(msg));
+    log('→ ' + method + '  ' + fmt(msg), 'var(--accent)');
+  }
+
+  // ---------- receive ----------
+  function handleMessage(data) {
+    // Response to one of our requests (has id + result/error, no method)
+    if (data.method === undefined && data.id !== undefined && pending.has(data.id)) {
+      const { method, t0 } = pending.get(data.id);
+      pending.delete(data.id);
+      const ms = Math.round(performance.now() - t0);
+      const isErr = !!data.error || (data.result && data.result.isError);
+      log(`← ${method} (${ms}ms)  ` + fmt(data), isErr ? 'var(--bad)' : 'var(--ok)');
+
+      if (data.error) return;
+      if (method === 'initialize' && data.result) {
+        const s = data.result.serverInfo || {};
+        $('serverInfo').textContent = `server: ${s.name || '?'} v${s.version || '?'}`;
+        $('serverInfo').style.display = '';
+        if ($('autoInit').checked) { _toolPages = []; sendRpc('tools/list', {}); }
+      } else if (method === 'tools/list' && data.result) {
+        // Gom các trang (pagination cursor): nối tool, theo nextCursor nếu còn.
+        _toolPages = _toolPages.concat(data.result.tools || []);
+        if (data.result.nextCursor) {
+          sendRpc('tools/list', { cursor: data.result.nextCursor });
+        } else {
+          renderTools(_toolPages);
+          _toolPages = [];
+        }
+      } else if (data.result && Array.isArray(data.result.content)) {
+        decodeToolResult(data.result);
+      }
+      return;
+    }
+
+    // Server-initiated request (has method). The broker may send ping to keep alive.
+    if (data.method !== undefined) {
+      if (data.method === 'ping') {
+        log('← ping (từ server) → tự trả pong', 'var(--warn)');
+        if (data.id !== undefined) ws.send(JSON.stringify({ jsonrpc: '2.0', id: data.id, result: {} }));
+      } else {
+        log('← (server request) ' + fmt(data), 'var(--warn)');
+      }
+      return;
+    }
+
+    // Anything else (unmatched id, notifications)
+    log('← ' + fmt(data), 'var(--muted)');
+  }
+
+  // Tool result content[].text is usually a JSON string → decode for readability
+  function decodeToolResult(result) {
+    const item = result.content.find(c => c.type === 'text');
+    if (!item) return;
+    let shown = item.text;
+    try { shown = JSON.stringify(JSON.parse(item.text)); } catch {}
+    log('   ⤷ kết quả: ' + shown, result.isError ? 'var(--bad)' : 'var(--ok)');
+  }
+
+  // ---------- dynamic tools ----------
+  function defaultForProp(name, schema) {
+    const n = name.toLowerCase();
+    if (n.includes('speed')) return 8;
+    if (n.includes('distance') || n.includes('meter')) return 0.5;
+    if (n.includes('angle') || n.includes('degree')) return 90;
+    switch (schema && schema.type) {
+      case 'number': case 'integer': return 0;
+      case 'boolean': return false;
+      case 'string': return '';
+      default: return 0;
+    }
+  }
+  function argTemplate(inputSchema) {
+    const props = (inputSchema && inputSchema.properties) || {};
+    const out = {};
+    for (const [k, v] of Object.entries(props)) out[k] = defaultForProp(k, v);
+    return out;
+  }
+  function renderTools(tools) {
+    $('toolCount').textContent = tools.length ? `(${tools.length})` : '';
+    const box = $('tools');
+    box.innerHTML = '';
+    if (!tools.length) { box.innerHTML = '<div class="muted">Robot chưa đăng ký tool nào (kiểm tra kết nối MCP của robot).</div>'; return; }
+    for (const t of tools) {
+      const tpl = JSON.stringify(argTemplate(t.inputSchema));
+      const el = document.createElement('div');
+      el.className = 'tool';
+      el.innerHTML =
+        `<div class="name"></div><div class="desc"></div>` +
+        `<div class="row"><input class="targs" style="flex:1" value='${tpl.replace(/'/g, '&#39;')}' />` +
+        `<button class="primary slim">Call</button></div>`;
+      el.querySelector('.name').textContent = t.name;
+      el.querySelector('.desc').textContent = t.description || '';
+      el.querySelector('button').onclick = () => {
+        let args = {};
+        const raw = el.querySelector('.targs').value.trim();
+        try { args = raw ? JSON.parse(raw) : {}; } catch { return alert('Args JSON sai cho ' + t.name); }
+        sendRpc('tools/call', { name: t.name, arguments: args });
+      };
+      box.appendChild(el);
+    }
+  }
+
+  // ---------- connect ----------
+  $('btnConnect').onclick = () => {
+    const ep = $('endpoint').value.trim();
+    if (!ep) return alert('Nhập endpoint MCP');
+    if (!/^wss?:\/\//i.test(ep)) return alert('Endpoint phải bắt đầu bằng ws:// hoặc wss://');
+    localStorage.setItem(LS_KEY, ep);
+    try { ws = new WebSocket(ep); }
+    catch (e) { return log('✗ Lỗi tạo WS: ' + e, 'var(--bad)'); }
+
+    log('Đang kết nối ' + ep + ' ...', 'var(--muted)');
+    ws.onopen = () => {
+      setStatus('on');
+      log('✓ MCP WS connected', 'var(--ok)');
+      reqId = 1; pending.clear();
+      if ($('autoInit').checked) {
+        sendRpc('initialize', {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: { name: 'OhmniBot-WebTester', version: '1.0.0' },
+        });
+      }
+    };
+    ws.onclose = (e) => { setStatus('off'); log(`MCP WS closed (code ${e.code}${e.reason ? ', ' + e.reason : ''})`, 'var(--muted)'); };
+    ws.onerror = () => { setStatus('err'); log('✗ MCP WS error (kiểm tra endpoint/token/mạng)', 'var(--bad)'); };
+    ws.onmessage = (ev) => {
+      try { handleMessage(JSON.parse(ev.data)); }
+      catch { log('← (không phải JSON) ' + ev.data, 'var(--muted)'); }
+    };
+  };
+
+  $('btnDisconnect').onclick = () => { if (ws) ws.close(); };
+
+  // ---------- basic methods ----------
+  document.querySelectorAll('#tab-mcp [data-method]').forEach(b => {
+    b.onclick = () => {
+      const m = b.dataset.method;
+      if (m === 'initialize') sendRpc('initialize', {
+        protocolVersion: '2024-11-05', capabilities: {},
+        clientInfo: { name: 'OhmniBot-WebTester', version: '1.0.0' },
+      });
+      else if (m === 'tools/list') { _toolPages = []; sendRpc(m, {}); }
+      else sendRpc(m, {});
+    };
+  });
+
+  // ---------- manual call ----------
+  $('btnCall').onclick = () => {
+    const name = $('toolName').value.trim();
+    if (!name) return alert('Nhập tên tool');
+    let args = {};
+    try { args = JSON.parse($('toolArgs').value || '{}'); } catch { return alert('Args JSON sai'); }
+    sendRpc('tools/call', { name, arguments: args });
+  };
+
+  // ---------- raw ----------
+  $('btnRaw').onclick = () => {
+    const txt = $('raw').value.trim();
+    if (!txt) return;
+    if (!ws || ws.readyState !== 1) return log('✗ Chưa kết nối WS', 'var(--bad)');
+    try { JSON.parse(txt); } catch { return alert('Raw JSON sai cú pháp'); }
+    ws.send(txt);
+    log('→ (raw) ' + txt, 'var(--accent)');
+  };
+
+  // ---------- utilities ----------
+  $('btnClear').onclick = () => { $('mcpLog').innerHTML = ''; };
+  $('btnCopy').onclick = async () => {
+    const txt = [...$('mcpLog').children].map(c => c.textContent).join('\n');
+    try { await navigator.clipboard.writeText(txt); log('✓ Đã copy log', 'var(--muted)'); }
+    catch { log('✗ Không copy được (clipboard bị chặn)', 'var(--bad)'); }
+  };
+  $('raw').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnRaw').click(); });
+  $('toolArgs').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnCall').click(); });
+
+  // ---------- emotion buttons (gọi tool set_emotion) ----------
+  const EMOTIONS = [
+    ['happy', '😀'], ['laughing', '😆'], ['loving', '🥰'], ['surprised', '😲'],
+    ['thinking', '🤔'], ['sad', '😢'], ['angry', '😠'], ['sleepy', '😴'], ['neutral', '😐'],
+  ];
+  EMOTIONS.forEach(([e, icon]) => {
+    const b = document.createElement('button');
+    b.textContent = icon + ' ' + e;
+    b.onclick = () => sendRpc('tools/call', { name: 'set_emotion', arguments: { emotion: e } });
+    $('mcpEmotions').appendChild(b);
+  });
+
+  // ---------- init ----------
+  $('endpoint').value = localStorage.getItem(LS_KEY) || 'wss://api.xiaozhi.me/mcp/?token=YOUR_TOKEN';
+  $('toolArgs').value = '{"speed": 8}';
+  setStatus('off');
+  log('MCP Tester sẵn sàng. Nhập endpoint Xiaozhi của robot rồi bấm Kết nối.', 'var(--muted)');
+})();
+</script>
+
+<!-- ============================================================ BLE SCRIPT ============================================================ -->
+<script>
+(function () {
+  // ===== BLE UUIDs (phải khớp firmware Config.h) =====
+  const SVC        = "6f000000-b5a3-f393-e0a9-e50e24dcca9e";
+  const CH_STATUS  = "6f000001-b5a3-f393-e0a9-e50e24dcca9e";
+  const CH_COMMAND = "6f000002-b5a3-f393-e0a9-e50e24dcca9e";
+  const CH_WIFICFG = "6f000003-b5a3-f393-e0a9-e50e24dcca9e";
+  const CH_XZCFG   = "6f000004-b5a3-f393-e0a9-e50e24dcca9e";
+  const CH_WIFISCAN= "6f000005-b5a3-f393-e0a9-e50e24dcca9e";
+  const CH_BBOX    = "6f000006-b5a3-f393-e0a9-e50e24dcca9e";
+  const CH_EMOTION = "6f000007-b5a3-f393-e0a9-e50e24dcca9e";
+
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  let device, server, chCmd, chWifi, chXz, chStatus, chScan, chBbox, chEmotion;
+
+  const $ = id => document.getElementById(id);
+  function log(m) {
+    const el = $("log"), t = new Date().toLocaleTimeString();
+    el.textContent += `[${t}] ${m}\n`; el.scrollTop = el.scrollHeight;
+  }
+  if (!navigator.bluetooth) $("nosupport").style.display = "block";
+
+  // ---------- KẾT NỐI BLE ----------
+  $("btnConn").onclick = async () => {
+    if (device && device.gatt.connected) { device.gatt.disconnect(); return; }
+    try {
+      log("Đang quét BLE...");
+      device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: [SVC] }, { namePrefix: "OhmniBot" }],
+        optionalServices: [SVC],
+      });
+      server = await device.gatt.connect();
+      const svc = await server.getPrimaryService(SVC);
+
+      chCmd    = await svc.getCharacteristic(CH_COMMAND);
+      chWifi   = await svc.getCharacteristic(CH_WIFICFG);
+      chXz     = await svc.getCharacteristic(CH_XZCFG);
+      chStatus = await svc.getCharacteristic(CH_STATUS);
+      chScan   = await svc.getCharacteristic(CH_WIFISCAN);
+      chBbox   = await svc.getCharacteristic(CH_BBOX);
+
+      await chStatus.startNotifications();
+      chStatus.addEventListener("characteristicvaluechanged", onStatus);
+      await chScan.startNotifications();
+      chScan.addEventListener("characteristicvaluechanged", onScanNotify);
+
+      try {
+        await chCmd.startNotifications();
+        chCmd.addEventListener("characteristicvaluechanged", e => log("⇐ " + dec.decode(e.target.value)));
+      } catch (e) {}
+
+      // Emotion là characteristic TUỲ CHỌN (chỉ firmware mới có). Lấy riêng để
+      // firmware cũ / GATT cache cũ không làm hỏng toàn bộ kết nối BLE.
+      try {
+        chEmotion = await svc.getCharacteristic(CH_EMOTION);
+        setEmotionEnabled(true);
+        $("bleEmoStatus").textContent = "✓ Sẵn sàng — bấm một cảm xúc để xe phản ứng.";
+      } catch (e) {
+        chEmotion = null;
+        setEmotionEnabled(false);
+        $("bleEmoStatus").textContent = "⚠ Firmware chưa có characteristic emotion (hoặc cache GATT cũ). Cập nhật firmware rồi tắt/bật Bluetooth để làm mới.";
+        log("⚠ Không thấy characteristic emotion — nút cảm xúc tạm tắt.");
+      }
+
+      device.addEventListener('gattserverdisconnected', onDisconnected);
+      setConn(true); log("Đã kết nối BLE: " + (device.name || "OhmniBot"));
+    } catch (e) { log("Lỗi BLE: " + e.message); }
+  };
+
+  function onDisconnected() {
+    log("BLE disconnected");
+    setConn(false);
+    chCmd = chWifi = chXz = chStatus = chScan = chBbox = chEmotion = null;
+    setEmotionEnabled(false);
+    { const s = $("bleEmoStatus"); if (s) s.textContent = "Chưa kết nối BLE."; }
+    if (joyRepeatTimer) { clearInterval(joyRepeatTimer); joyRepeatTimer = null; }
+    joyActive = false;
+  }
+
+  function setConn(on) {
+    $("connDot").className = "dot " + (on ? "on" : "off");
+    $("connTxt").textContent = on ? "Đã kết nối BLE" : "Chưa kết nối";
+    $("btnConn").textContent = on ? "Ngắt BLE" : "Kết nối BLE";
+  }
+
+  function onStatus(ev) {
+    let s; try { s = JSON.parse(dec.decode(ev.target.value)); } catch { return; }
+    $("wifiDot").className = "dot " + (s.wifi ? "on" : "off");
+    $("xzDot").className   = "dot " + (s.xz ? "on" : "off");
+    $("folDot").className  = "dot " + (s.fol ? "on" : "off");
+    $("ipTxt").textContent = "IP: " + (s.ip || "—");
+    const f = v => (v === undefined ? "—" : Number(v).toFixed(2));
+    $("tL").textContent = f(s.tL); $("vL").textContent = f(s.vL);
+    $("tR").textContent = f(s.tR); $("vR").textContent = f(s.vR);
+  }
+
+  function onScanNotify(ev) {
+    const btn = $("btnScan");
+    if (btn) { btn.disabled = false; btn.textContent = "Quét"; }
+    try {
+      const raw = dec.decode(ev.target.value);
+      const list = JSON.parse(raw);
+      const sel = $("ssidList");
+      sel.innerHTML = '<option value="">— Chọn SSID —</option>';
+      if (Array.isArray(list)) {
+        list.forEach(item => {
+          const opt = document.createElement("option");
+          opt.value = item.ssid || item;
+          opt.textContent = (item.ssid || item) + (item.rssi ? ` (${item.rssi})` : "");
+          sel.appendChild(opt);
+        });
+        log("Scan done: " + list.length + " networks");
+      } else {
+        log("Scan result not array");
+      }
+    } catch (e) {
+      log("Scan parse error: " + e.message);
+    }
+  }
+
+  $("btnScan").onclick = async () => {
+    if (!chScan) { log("Chưa kết nối BLE"); return; }
+    const btn = $("btnScan");
+    const oldText = btn.textContent;
+    btn.textContent = "Đang quét...";
+    btn.disabled = true;
+    try {
+      await chScan.writeValue(enc.encode("scan"));
+      log("Đã yêu cầu quét WiFi");
+      setTimeout(() => {
+        if (btn) { btn.textContent = oldText; btn.disabled = false; }
+      }, 6000);
+    } catch (e) {
+      log("Lỗi quét: " + e);
+      btn.textContent = oldText;
+      btn.disabled = false;
+    }
+  };
+
+  $("ssidList").onchange = () => { $("ssid").value = $("ssidList").value; };
+
+  $("btnWifi").onclick = async () => {
+    if (!chWifi) { log("Chưa kết nối BLE"); return; }
+    const payload = ($("ssid").value || "") + "\n" + ($("pass").value || "");
+    try { await chWifi.writeValue(enc.encode(payload)); log("Đã gửi config WiFi qua BLE"); } catch (e) { log("Lỗi gửi WiFi: " + e); }
+  };
+
+  $("btnXz").onclick = async () => {
+    if (!chXz) { log("Chưa kết nối BLE"); return; }
+    const url = $("xzUrl").value.trim();
+    const tok = $("xzToken").value.trim();
+    const payload = url + (tok ? "\n" + tok : "");
+    if (!url) { log("Cần URL endpoint"); return; }
+    try { await chXz.writeValue(enc.encode(payload)); log("Đã gửi cấu hình Xiaozhi MCP qua BLE (robot sẽ kết nối WiFi MCP)"); } catch (e) { log("Lỗi gửi XZ: " + e); }
+  };
+
+  // ---------- JOYSTICK BLE (gửi text command) ----------
+  const joy = $("joyBase"), knob = $("joyKnob"), readout = $("joyReadout");
+  let joyActive = false;
+  let currentJoyCmd = "S";
+  let joyRepeatTimer = null;
+
+  function sendBleCmd(cmd) {
+    if (!chCmd) { log("BLE not connected, cmd dropped: " + cmd); return; }
+    chCmd.writeValue(enc.encode(cmd)).catch(e => log("BLE write error " + cmd + ": " + e.message));
+  }
+
+  function updateJoy(x, y) { // x,y -1..1
+    const px = (x * 70) + 50, py = (y * 70) + 50;
+    knob.style.left = px + "%"; knob.style.top = py + "%";
+  }
+
+  function startJoyRepeat() {
+    if (joyRepeatTimer) return;
+    joyRepeatTimer = setInterval(() => {
+      if (joyActive && chCmd && currentJoyCmd !== "S") sendBleCmd(currentJoyCmd);
+    }, 120);
+  }
+
+  function stopJoyRepeat() {
+    if (joyRepeatTimer) { clearInterval(joyRepeatTimer); joyRepeatTimer = null; }
+  }
+
+  function handleJoy(e) {
+    if (!chCmd) return;
+    const rect = joy.getBoundingClientRect();
+    let dx = ((e.clientX || e.touches?.[0]?.clientX) - (rect.left + rect.width / 2)) / (rect.width / 2);
+    let dy = ((e.clientY || e.touches?.[0]?.clientY) - (rect.top + rect.height / 2)) / (rect.height / 2);
+    const len = Math.hypot(dx, dy); if (len > 1) { dx /= len; dy /= len; }
+    updateJoy(dx, dy);
+
+    const sp = parseFloat($("speed").value) || 12;
+    let cmd = "S", txt = "Nghỉ";
+    if (Math.abs(dy) > 0.2 || Math.abs(dx) > 0.2) {
+      const fwd = -dy * sp, turn = dx * sp * 0.7;
+      if (Math.abs(fwd) > Math.abs(turn)) { cmd = (fwd > 0 ? "F" : "B") + Math.abs(fwd).toFixed(0); txt = (fwd > 0 ? "Tiến" : "Lùi") + " " + Math.abs(fwd).toFixed(0); }
+      else { cmd = (turn > 0 ? "R" : "L") + Math.abs(turn).toFixed(0); txt = (turn > 0 ? "Phải" : "Trái") + " " + Math.abs(turn).toFixed(0); }
+    }
+    readout.textContent = txt;
+    currentJoyCmd = cmd;
+    sendBleCmd(cmd);
+    if (joyActive) startJoyRepeat();
+  }
+
+  function endJoy() {
+    joyActive = false;
+    stopJoyRepeat();
+    updateJoy(0, 0);
+    readout.textContent = "Nghỉ";
+    currentJoyCmd = "S";
+    sendBleCmd("S");
+  }
+
+  joy.addEventListener("pointerdown", e => { joyActive = true; joy.setPointerCapture(e.pointerId); handleJoy(e); });
+  joy.addEventListener("pointermove", e => { if (joyActive) handleJoy(e); });
+  joy.addEventListener("pointerup", endJoy);
+  joy.addEventListener("pointercancel", endJoy);
+
+  $("speed").oninput = () => { $("speedVal").textContent = $("speed").value; };
+  $("speedVal").textContent = $("speed").value;
+
+  $("btnStopBle").onclick = () => sendBleCmd("S");
+
+  // ---------- FOLLOW BBOX (canvas) ----------
+  const canvas = $("cam"), ctx = canvas.getContext("2d");
+  let box = { cx: 0.5, cy: 0.5, w: 0.3, h: 0.25 }, drawing = false;
+
+  function drawBox() {
+    ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 2;
+    const x = (box.cx - box.w / 2) * canvas.width, y = (box.cy - box.h / 2) * canvas.height, w = box.w * canvas.width, h = box.h * canvas.height;
+    ctx.strokeRect(x, y, w, h);
+    $("boxReadout").textContent = `cx:${box.cx.toFixed(2)} cy:${box.cy.toFixed(2)} w:${box.w.toFixed(2)} h:${box.h.toFixed(2)}`;
+  }
+  drawBox();
+
+  function updateBoxFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    const px = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) / rect.width;
+    const py = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) / rect.height;
+    box.cx = Math.max(0.1, Math.min(0.9, px));
+    box.cy = Math.max(0.1, Math.min(0.9, py));
+    box.w = Math.max(0.1, Math.min(0.7, box.w));
+    box.h = Math.max(0.1, Math.min(0.7, box.h));
+    drawBox();
+  }
+
+  canvas.addEventListener("pointerdown", e => { drawing = true; updateBoxFromEvent(e); });
+  canvas.addEventListener("pointermove", e => { if (drawing) updateBoxFromEvent(e); });
+  window.addEventListener("pointerup", () => { if (drawing) { drawing = false; } });
+
+  let followEnabled = false;
+  $("btnFollow").onclick = async () => {
+    if (!chBbox) { log("Chưa kết nối BLE"); return; }
+    followEnabled = !followEnabled;
+    const payload = followEnabled ? "EN1" : "EN0";
+    try {
+      await chBbox.writeValue(enc.encode(payload));
+      log("BLE → " + payload);
+      $("btnFollow").textContent = followEnabled ? "Tắt Follow" : "Bật Follow";
+    } catch (e) { log("Lỗi follow: " + e); }
+  };
+
+  $("btnSendBox").onclick = () => sendBox();
+
+  async function sendBox() {
+    if (!chBbox) { log("Chưa kết nối BLE"); return; }
+    const payload = `${box.cx.toFixed(2)},${box.cy.toFixed(2)},${box.w.toFixed(2)},${box.h.toFixed(2)}`;
+    try { await chBbox.writeValue(enc.encode(payload)); log("BLE → bbox " + payload); } catch (e) { log("Lỗi bbox: " + e); }
+  }
+
+  // ---------- emotion buttons (ghi CH_EMOTION) ----------
+  const EMOTION_LIST = [
+    ['happy', '😀'], ['laughing', '😆'], ['loving', '🥰'], ['surprised', '😲'],
+    ['thinking', '🤔'], ['sad', '😢'], ['angry', '😠'], ['sleepy', '😴'], ['neutral', '😐'],
+  ];
+  const bleEmoBtns = [];
+  EMOTION_LIST.forEach(([e, icon]) => {
+    const b = document.createElement('button');
+    b.textContent = icon + ' ' + e;
+    b.disabled = true;  // chỉ bật khi đã có characteristic emotion
+    b.onclick = async () => {
+      if (!chEmotion) { log('Emotion chưa sẵn sàng (kết nối BLE + firmware có characteristic emotion).'); return; }
+      try { await chEmotion.writeValue(enc.encode(e)); log('BLE → emotion ' + e); }
+      catch (err) { log('Lỗi emotion: ' + err); }
+    };
+    bleEmoBtns.push(b);
+    $('bleEmotions').appendChild(b);
+  });
+  function setEmotionEnabled(on) { bleEmoBtns.forEach(b => { b.disabled = !on; }); }
+
+  // init
+  log("Sẵn sàng. Kết nối BLE để điều khiển xe. Dùng WiFi/Xiaozhi config để robot kết nối MCP WebSocket.");
+})();
+</script>
+</body>
+</html>
